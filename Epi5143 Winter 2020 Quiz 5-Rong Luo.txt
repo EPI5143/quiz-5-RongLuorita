@@ -1,0 +1,39 @@
+Epi5143 Winter 2020 Quiz 5Due by Tuesday March 24th, 2019 by 11:59pm.  Submit quiz via Github (link will be provided by email) From the class data:Determine the proportion of admissions which recorded a diagnosis of  diabetes for admissions between  January 1st 2003 and December 31st, 2004.  Generate a frequency table of frequency of diabetes diagnoses, with the denominator being the total number of admissions between January 1st 2003 and December 31st, 2004 .This exercise requires sorting, flat-filing, and linking (merging) tables.Hints:  	¥	 From the NhrAbstracts dataset, you will have to create a new dataset which contains only unique admissions (hraEncWID) with admit dates (hraAdmDtm) between January 1st, 2003 and December 31st, 2004: this is your spine dataset.	¥	 From the NhrDiagnosis table you will need to determine if one or more diagnosis codes (hdgcd)  for diabetes (ICD9 starting with '250' or ICD10 starting with 'E11' or 'E10') was present for each encounter  in the diagnosis table and create an indicator variable called DM (=0 for no diabetes codes, =1 for one or more diabetes codes). 	¥	You will need to flatten your diabetes diagnoses dataset with respect to encounter ID (hdgHraEncWID).	¥	You will need to link the spine dataset you generated from NhrAbstracts and the flattened diabetes diagnoses dataset you generated based on the NhrDiagnosis table using the encounter id's  from each database (renaming as required).	¥	Your final dataset should have the same # of observations (and include all encounter IDs) found in your the spine dataset and have an indicator variable, DM which is 1 if any diabetes code was present, and 0 otherwise.	¥	Please provide your final SAS code, and resulting frequency table for the  indicator variable you created (plain text so it can be uploaded to Github as a plain text .sas file). You are  encouraged to include inline comments to explain the purpose of each step in your program (which may earn you part marks if your code doesn't actually do what it is supposed to).Answer:The proportion of admission which recorded a diagnosis of diabetes for admissions between Jan 1, 2003 and Dec 31, 2004 is 83/2230 (3.72%).SAS codes by using proc means approach attached as follow:
+libname epi "/folders/myfolders/EPI5143data";libname ex "/folders/myfolders/EPI5143data/exercise";proc contents data=epi.nhrabstracts varnum;run;proc contents data=epi.nhrdiagnosis varnum;run;**Q1:create spine dataset: admission from 2003-2004 from abstracts table;data ex.abspine;set epi.nhrabstracts;if year(datepart(hraadmdtm)) <2003 or year(datepart(hraadmdtm))>2004 then delete;run;**check no duplicates in spine dataset;proc sort data=ex.abspine nodupkey;by hraencwid;run;**Q2:identification diabetes diagnosis codes and create indicator variable; data ex.diag;set epi.nhrdiagnosis;run;**create dm dataset with a flag for diabetes diagnoses;data dm;set ex.diag;dm=0;if hdgcd in:('250' 'E11' 'E10') then dm=1;run;**Q3: create flat file  with respect to each unique encounter ID;proc means data=dm noprint;class hdghraencwid;types hdghraencwid;var dm;output out=dmflat max(dm)=dm n(dm)=count sum(dm)=dm_count;run;proc freq data=dmflat;tables dm_count dm count;run;**Q4:link spine dataset with diabetes diagnosis dataset-left join;proc sort data=dmflat;by hdghraencwid;run;data final;merge ex.abspine (in=a) dmflat(in=b rename=hdghraencwid=hraencwid);by hraencwid;if a;if dm=. then dm=0; **if hraencwid is not represented in the dmflat dataset then it will have missing values for the flags;if count=. then count=0; **so set those missing to be included in the denominator;if dm_count=. then dm_count=0;run;proc freq data=final;tables dm count dm_count;run;/*output:dm	Frequency	Percent	    CumulativeFrequency CumulativePercent
+0	2147	        96.28	    2147	        96.28
+1	83	        3.72	    2230	        100.00
+
+
+count	Frequency	Percent	 CumulativeFrequency	CumulativePercent
+0	249	        11.17	 249	                11.17
+1	588	        26.37	 837	                37.53
+2	392	        17.58	 1229	                55.11
+3	287	        12.87	 1516	                67.98
+4	236	        10.58	 1752	                78.57
+5	156	        7.00	 1908	                85.56
+6	107	        4.80	 2015	                90.36 
+7	67	        3.00	 2082	                93.36
+8	39	        1.75	 2121	                95.11
+9	33	        1.48	 2154	                96.59
+10	22	        0.99	 2176	                97.58
+11	13	        0.58	 2189	                98.16
+12	15	        0.67	 2204	                98.83
+13	8	        0.36	 2212	                99.19
+14	3	        0.13	 2215	                99.33
+15	3	        0.13	 2218	                99.46
+16	1	        0.04	 2219	                99.51
+17	2	        0.09	 2221	                99.60
+18	4	        0.18	 2225	                99.78
+19	3	        0.13	 2228	                99.91
+20	1	        0.04	 2229	                99.96
+21	1	        0.04	 2230	                100.00
+
+dm_count        Frequency	Percent	  CumulativeFrequency	CumulativePercent
+0	        2147	        96.28	  2147	                96.28
+1	        83	        3.72	  2230	                100.00*/SAS codes by using first. and last. approach attached as below:
+libname epi "/folders/myfolders/EPI5143data";libname ex "/folders/myfolders/EPI5143data/exercise";proc contents data=epi.nhrabstracts varnum;run;proc contents data=epi.nhrdiagnosis varnum;run;**Q1:create spine dataset: admission from 2003-2004 from abstracts table;data ex.abspine;set epi.nhrabstracts;if year(datepart(hraadmdtm)) <2003 or year(datepart(hraadmdtm))>2004 then delete;run;**check no duplicates in spine dataset;proc sort data=ex.abspine nodupkey;by hraencwid;run;**Q2&Q3:identification diabetes diagnosis codes and create indicator variable and flatten dataset per encounter ID; data ex.diag;set epi.nhrdiagnosis;run;**make sure diagnosis table sorted by hdghraencwid;proc sort data=ex.diag out=procs;by hdgHraEncWID;run;**use first. and last., retain statement and output statement to create diabetes(dm)flags and flatten the diabetes dataset with respect to encounter ID hdghraencwid;data diabetes;set procs;by hdgHraEncWID;if first.hdgHraEncWID=1 then do;dm=0; **reset flags for each new hraencwid;count=0;end;if hdgcd  in:('250' 'E11' 'E10') then do;dm=1; count=count+1;**set diabetes flag and increment the counter if there is a diabetes code                                  recorded for the current row;end;if last.hdgHraEncWID then output;retain dm count;run;proc freq data=diabetes;tables dm count;run;**Q4:left join to merge the diabetes dataset to spine dataset;data diabmerge;merge ex.abspine (in=a) diabetes(in=b rename=hdgHraEncWID=hraencwid);by hraencwid;if a;if b=0 then do; **hraencwid not represented in the diabetes dataset will have missing values for the flags, so to set missing values to 0 to ensure them are included in the denominator;if dm=. then dm=0; if count=. then count=0;end;run;proc freq data=diabmerge;table dm count;run;/*output:dm	Frequency	Percent	CumulativeFrequency	CumulativePercent
+0	2147	        96.28	2147	                96.28
+1	83	        3.72	2230	                100.00
+count	Frequency	Percent	CumulativeFrequency	CumulativePercent
+0	2147	        96.28	2147	                96.28
+1	83	        3.72	2230	                100.00*/
